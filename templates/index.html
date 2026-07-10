@@ -52,6 +52,71 @@
             overflow: hidden;
         }
 
+        .widget-card {
+            background: #f8f9ff;
+            border: 1px solid #e0e6ff;
+            border-radius: 8px;
+            padding: 14px 16px;
+            margin-bottom: 16px;
+        }
+
+        .widget-card h3 {
+            font-size: 16px;
+            margin-bottom: 10px;
+            color: #333;
+        }
+
+        .widget-meta {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+            color: #555;
+            font-size: 13px;
+        }
+
+        .memory-bar {
+            width: 100%;
+            height: 10px;
+            background: #e9ecef;
+            border-radius: 999px;
+            overflow: hidden;
+        }
+
+        .memory-bar > div {
+            height: 100%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+
+        .memory-metrics {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+
+        .memory-metric {
+            background: white;
+            border: 1px solid #eee;
+            border-radius: 6px;
+            padding: 8px;
+            text-align: center;
+        }
+
+        .memory-metric span {
+            display: block;
+            font-size: 11px;
+            color: #777;
+            margin-bottom: 4px;
+        }
+
+        .memory-metric strong {
+            color: #333;
+            font-size: 14px;
+        }
+
         .output-section {
             display: flex;
             flex-direction: column;
@@ -187,6 +252,29 @@
         </div>
 
         <div class="content">
+            <div class="widget-card">
+                <h3>Proxmox Memory Usage</h3>
+                <div class="widget-meta">
+                    <span id="memoryTitle">Loading…</span>
+                    <span id="memoryStatus">Checking connection…</span>
+                </div>
+                <div class="memory-metrics">
+                    <div class="memory-metric">
+                        <span>Used</span>
+                        <strong id="memoryUsed">-- GB</strong>
+                    </div>
+                    <div class="memory-metric">
+                        <span>Free</span>
+                        <strong id="memoryFree">-- GB</strong>
+                    </div>
+                    <div class="memory-metric">
+                        <span>Percent</span>
+                        <strong id="memoryPercent">--%</strong>
+                    </div>
+                </div>
+                <div class="memory-bar"><div id="memoryBarFill"></div></div>
+            </div>
+
             <div class="output-section">
                 <label for="output">Output</label>
                 <div id="output"></div>
@@ -215,6 +303,12 @@
         const sendBtn = document.getElementById("sendBtn");
         const outputDiv = document.getElementById("output");
         const statusDiv = document.getElementById("status");
+        const memoryTitle = document.getElementById("memoryTitle");
+        const memoryStatus = document.getElementById("memoryStatus");
+        const memoryUsed = document.getElementById("memoryUsed");
+        const memoryFree = document.getElementById("memoryFree");
+        const memoryPercent = document.getElementById("memoryPercent");
+        const memoryBarFill = document.getElementById("memoryBarFill");
 
         // Send command on button click
         sendBtn.addEventListener("click", sendCommand);
@@ -275,8 +369,41 @@
             statusDiv.className = `status ${type}`;
         }
 
+        async function loadProxmoxMemory() {
+            try {
+                const response = await fetch("/api/proxmox/memory");
+                const data = await response.json();
+
+                if (!response.ok) {
+                    memoryTitle.textContent = "Unavailable";
+                    memoryStatus.textContent = data.error || "Could not load memory data";
+                    memoryUsed.textContent = "-- GB";
+                    memoryFree.textContent = "-- GB";
+                    memoryPercent.textContent = "--%";
+                    memoryBarFill.style.width = "0%";
+                    return;
+                }
+
+                memoryTitle.textContent = "Current host memory";
+                memoryStatus.textContent = `${data.used_gb} GB used of ${data.total_gb} GB`;
+                memoryUsed.textContent = `${data.used_gb} GB`;
+                memoryFree.textContent = `${data.free_gb} GB`;
+                memoryPercent.textContent = `${data.used_percent}%`;
+                memoryBarFill.style.width = `${Math.min(data.used_percent, 100)}%`;
+            } catch (error) {
+                memoryTitle.textContent = "Unavailable";
+                memoryStatus.textContent = error.message;
+                memoryUsed.textContent = "-- GB";
+                memoryFree.textContent = "-- GB";
+                memoryPercent.textContent = "--%";
+                memoryBarFill.style.width = "0%";
+            }
+        }
+
         // Focus on input when page loads
         commandInput.focus();
+        loadProxmoxMemory();
+        setInterval(loadProxmoxMemory, 30000);
     </script>
 </body>
 </html>
