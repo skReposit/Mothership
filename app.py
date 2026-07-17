@@ -106,5 +106,49 @@ def proxmox_memory():
         return jsonify({"error": str(exc)}), 502
 
 
+@app.route("/api/proxmox/vms")
+def proxmox_vms():
+    """Fetch the current VM list and runtime state from the configured Proxmox node."""
+    if not all([PROXMOX_API_URL, PROXMOX_TOKEN_ID, PROXMOX_TOKEN_SECRET, PROXMOX_NODE]):
+        return jsonify({"error": "Proxmox API configuration is incomplete"}), 400
+
+    headers = {
+        "Authorization": f"PVEAPIToken={PROXMOX_TOKEN_ID}={PROXMOX_TOKEN_SECRET}",
+    }
+
+    try:
+        response = requests.get(
+            f"{PROXMOX_API_URL}/api2/json/nodes/{PROXMOX_NODE}/qemu",
+            headers=headers,
+            timeout=POLL_TIMEOUT,
+        )
+        response.raise_for_status()
+
+        payload = response.json().get("data", [])
+        vms = []
+        for item in payload if isinstance(payload, list) else []:
+            if not isinstance(item, dict):
+                continue
+            vms.append(
+                {
+                    "vmid": item.get("vmid"),
+                    "name": item.get("name", "Unnamed VM"),
+                    "status": item.get("status", "unknown"),
+                    "is_running": str(item.get("status", "")).lower() == "running",
+                }
+            )
+
+        return jsonify(vms)
+
+    except requests.exceptions.ConnectionError:
+        return jsonify({"error": "Cannot connect to the Proxmox API"}), 503
+    except requests.exceptions.Timeout:
+        return jsonify({"error": "Request to the Proxmox API timed out"}), 504
+    except requests.exceptions.RequestException as exc:
+        return jsonify({"error": str(exc)}), 502
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 502
+
+
 if __name__ == "__main__":
     app.run(debug=True, host="localhost", port=5000)

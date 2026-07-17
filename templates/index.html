@@ -102,6 +102,57 @@
             font-size: 16px;
         }
 
+        .vm-list {
+            margin-top: 10px;
+            border: 1px solid #eee;
+            border-radius: 6px;
+            background: white;
+            overflow: hidden;
+        }
+
+        .vm-list-header,
+        .vm-row {
+            display: grid;
+            grid-template-columns: 1.2fr 1fr 0.8fr;
+            gap: 8px;
+            padding: 8px 10px;
+            align-items: center;
+        }
+
+        .vm-list-header {
+            background: #f3f5ff;
+            color: #556;
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+        }
+
+        .vm-row + .vm-row {
+            border-top: 1px solid #f0f2f8;
+        }
+
+        .vm-state {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 13px;
+            font-weight: 600;
+        }
+
+        .vm-state::before {
+            content: "";
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #d14b4b;
+            display: inline-block;
+        }
+
+        .vm-state.running::before {
+            background: #34a853;
+        }
+
         .output-section {
             display: flex;
             flex-direction: column;
@@ -250,6 +301,14 @@
                     <span>Current</span>
                     <strong id="memoryPercent">--%</strong>
                 </div>
+                <div class="vm-list" id="vmListContainer">
+                    <div class="vm-list-header">
+                        <span>VM</span>
+                        <span>Status</span>
+                        <span>State</span>
+                    </div>
+                    <div id="vmList"></div>
+                </div>
             </div>
 
             <div class="output-section">
@@ -284,6 +343,7 @@
         const memoryStatus = document.getElementById("memoryStatus");
         const memoryPercent = document.getElementById("memoryPercent");
         const memoryChart = document.getElementById("memoryChart");
+        const vmList = document.getElementById("vmList");
         let memoryHistory = [];
         const MAX_POINTS = 5;
 
@@ -427,10 +487,39 @@
             }
         }
 
+        async function loadProxmoxVms() {
+            try {
+                const response = await fetch("/api/proxmox/vms");
+                const data = await response.json();
+
+                if (!response.ok) {
+                    vmList.innerHTML = `<div class="vm-row"><span colspan="3">${data.error || "Could not load VM list"}</span></div>`;
+                    return;
+                }
+
+                if (!Array.isArray(data) || data.length === 0) {
+                    vmList.innerHTML = '<div class="vm-row"><span>No VMs found</span></div>';
+                    return;
+                }
+
+                vmList.innerHTML = data.map((vm) => `
+                    <div class="vm-row">
+                        <span>${vm.name}</span>
+                        <span>${vm.status}</span>
+                        <span class="vm-state ${vm.is_running ? "running" : ""}">${vm.is_running ? "On" : "Off"}</span>
+                    </div>
+                `).join("");
+            } catch (error) {
+                vmList.innerHTML = `<div class="vm-row"><span>${error.message}</span></div>`;
+            }
+        }
+
         // Focus on input when page loads
         commandInput.focus();
         loadProxmoxMemory();
+        loadProxmoxVms();
         setInterval(loadProxmoxMemory, 10000);
+        setInterval(loadProxmoxVms, 15000);
     </script>
 </body>
 </html>
