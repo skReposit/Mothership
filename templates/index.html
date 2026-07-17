@@ -116,7 +116,7 @@
         .vm-list-header,
         .vm-row {
             display: grid;
-            grid-template-columns: 1.2fr 1fr 0.8fr;
+            grid-template-columns: 1.2fr 1fr 0.8fr 0.7fr;
             gap: 8px;
             padding: 8px 10px;
             align-items: center;
@@ -154,6 +154,55 @@
 
         .vm-state.running::before {
             background: #34a853;
+        }
+
+        .vm-action-btn {
+            border: none;
+            background: #667eea;
+            color: white;
+            padding: 6px 8px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+
+        .modal-backdrop {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.45);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+
+        .modal-backdrop.open {
+            display: flex;
+        }
+
+        .modal-card {
+            background: white;
+            border-radius: 8px;
+            width: min(90%, 320px);
+            padding: 16px;
+            box-shadow: 0 10px 28px rgba(0, 0, 0, 0.25);
+        }
+
+        .modal-card h4 {
+            margin-bottom: 10px;
+            color: #333;
+        }
+
+        .modal-card p {
+            font-size: 14px;
+            color: #555;
+            margin-bottom: 12px;
+            word-break: break-all;
+        }
+
+        .modal-card button {
+            height: auto;
+            padding: 8px 12px;
         }
 
         .output-section {
@@ -309,6 +358,7 @@
                         <span>VM</span>
                         <span>Status</span>
                         <span>State</span>
+                        <span>IP</span>
                     </div>
                     <div id="vmList"></div>
                 </div>
@@ -337,6 +387,14 @@
         </div>
     </div>
 
+    <div class="modal-backdrop" id="ipModalBackdrop">
+        <div class="modal-card">
+            <h4>VM IP Address</h4>
+            <p id="ipModalText">No IP address available.</p>
+            <button id="closeModalBtn">Close</button>
+        </div>
+    </div>
+
     <script>
         const commandInput = document.getElementById("command");
         const sendBtn = document.getElementById("sendBtn");
@@ -347,6 +405,9 @@
         const memoryPercent = document.getElementById("memoryPercent");
         const memoryGauge = document.getElementById("memoryGauge");
         const vmList = document.getElementById("vmList");
+        const ipModalBackdrop = document.getElementById("ipModalBackdrop");
+        const ipModalText = document.getElementById("ipModalText");
+        const closeModalBtn = document.getElementById("closeModalBtn");
 
         // Send command on button click
         sendBtn.addEventListener("click", sendCommand);
@@ -449,13 +510,22 @@
             }
         }
 
+        function showIpModal(ipAddress) {
+            ipModalText.textContent = ipAddress || "No IP address available.";
+            ipModalBackdrop.classList.add("open");
+        }
+
+        function closeIpModal() {
+            ipModalBackdrop.classList.remove("open");
+        }
+
         async function loadProxmoxVms() {
             try {
                 const response = await fetch("/api/proxmox/vms");
                 const data = await response.json();
 
                 if (!response.ok) {
-                    vmList.innerHTML = `<div class="vm-row"><span colspan="3">${data.error || "Could not load VM list"}</span></div>`;
+                    vmList.innerHTML = `<div class="vm-row"><span colspan="4">${data.error || "Could not load VM list"}</span></div>`;
                     return;
                 }
 
@@ -469,12 +539,24 @@
                         <span>${vm.name}</span>
                         <span>${vm.status}</span>
                         <span class="vm-state ${vm.is_running ? "running" : ""}">${vm.is_running ? "On" : "Off"}</span>
+                        <button class="vm-action-btn" data-ip="${vm.ip_address || ""}">Show IP</button>
                     </div>
                 `).join("");
+
+                vmList.querySelectorAll(".vm-action-btn").forEach((button) => {
+                    button.addEventListener("click", () => showIpModal(button.getAttribute("data-ip")));
+                });
             } catch (error) {
                 vmList.innerHTML = `<div class="vm-row"><span>${error.message}</span></div>`;
             }
         }
+
+        closeModalBtn.addEventListener("click", closeIpModal);
+        ipModalBackdrop.addEventListener("click", (event) => {
+            if (event.target === ipModalBackdrop) {
+                closeIpModal();
+            }
+        });
 
         // Focus on input when page loads
         commandInput.focus();

@@ -129,12 +129,19 @@ def proxmox_vms():
         for item in payload if isinstance(payload, list) else []:
             if not isinstance(item, dict):
                 continue
+            ip_address = ""
+            for net in item.get("net0", "").split(",") if isinstance(item.get("net0"), str) else []:
+                if "ip=" in net:
+                    ip_address = net.split("ip=", 1)[1].split("/", 1)[0]
+                    break
+
             vms.append(
                 {
                     "vmid": item.get("vmid"),
                     "name": item.get("name", "Unnamed VM"),
                     "status": item.get("status", "unknown"),
                     "is_running": str(item.get("status", "")).lower() == "running",
+                    "ip_address": ip_address,
                 }
             )
 
